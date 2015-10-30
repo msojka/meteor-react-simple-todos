@@ -17,11 +17,27 @@ Meteor.methods({
   },
   
   removeTask(taskId) {
+    const task = Tasks.findOne(taskId);
+    if(task.private && task.owner !== Meteor.userId()) {
+      throw new Meteor.Error("not-authorized");
+    }
     Tasks.remove(taskId);
   },
   
-  setChecked(taskId, checked) {
-    Tasks.update(taskId, {$set: {cehcked: checked}});
+  setChecked(taskId, flag) {
+    const task = Tasks.findOne(taskId);
+    if(task.private && task.owner !== Meteor.userId()) {
+      throw new Meteor.Error("not-authorized");
+    }
+    Tasks.update(taskId, {$set: {checked: flag}});
+  },
+  
+  setPrivate(taskId, flag) {
+    const task = Tasks.findOne(taskId);
+    if(task.owner !== Meteor.userId()) {
+      throw new Meteor.Error("not-authorized");
+    }
+    Tasks.update(taskId, {$set: {private: flag}})
   }
   
 });
@@ -34,8 +50,23 @@ if(Meteor.isClient) {
     passwordSignupFields: "USERNAME_ONLY"
   });
   
+  Meteor.subscribe("tasks");
+  
   Meteor.startup(function() {
     React.render(<App />, document.getElementById("react-target"));
   });
   
+}
+
+
+// SERVER
+if(Meteor.isServer) {
+  Meteor.publish("tasks", function() {
+    return Tasks.find({
+      $or: [
+        {private: {$ne: true}},
+        {owner: this.userId}
+      ]
+    });
+  });
 }
